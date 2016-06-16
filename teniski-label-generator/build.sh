@@ -56,6 +56,10 @@ function check_requirements() {
 		logFatal "labelmaker not available. get it from https://github.com/zeridon/labelmaker and link it to \"tool\""
 	fi
 
+	if [ ! -r ${SCRIPT_DIRECTORY}/tool/configs/65mm_x_40mm_3x8.ini ] ; then
+		logFatal "label config not available. get it from https://github.com/zeridon/labelmaker and link it to \"tool\""
+	fi
+
 	if [ ! -r ${SCRIPT_DIRECTORY}/teniski.csv ] ; then
 		logFatal "input data not found ${SCRIPT_DIRECTORY}/teniski.csv"
 	fi
@@ -63,12 +67,20 @@ function check_requirements() {
 	if ! type pdfunite >/dev/null ; then
 		logFatal "pdfunite (popler-utils) not installed"
 	fi
+	if ! type pdfopt >/dev/null ; then
+		logFatal "pdfopt (popler-utils) not installed"
+	fi
+
+	if ! type pngcrush >/dev/null ; then
+		logFatal "pngcrus not installed"
+	fi
 }
 
 # do the magic to have a usable template
 function modify_template(){
 	# make grayscale logo
 	convert ${SCRIPT_DIRECTORY}/logo_500x500.png -colorspace Gray -transparent white ${SCRIPT_DIRECTORY}/logo_bw.png
+	pngcrush -e .crush.png -q ${SCRIPT_DIRECTORY}/logo_bw.png && mv ${SCRIPT_DIRECTORY}/logo_bw.crush.png ${SCRIPT_DIRECTORY}/logo_bw.png
 	cat ${SCRIPT_DIRECTORY}/template_teniski_etiketi.svg | sed -e "s|@BASEPATH@|${SCRIPT_DIRECTORY}|" > ${SCRIPT_DIRECTORY}/_tmp.svg
 }
 
@@ -99,6 +111,7 @@ function prepare_label_sheets(){
 
 	# now merge pdf's for easier printing
 	pdfunite ${SCRIPT_DIRECTORY}/out_*.pdf ${SCRIPT_DIRECTORY}/teniski_etiketi.pdf
+	pdfopt ${SCRIPT_DIRECTORY}/teniski_etiketi.pdf ${SCRIPT_DIRECTORY}/_tmp.pdf && mv ${SCRIPT_DIRECTORY}/_tmp.pdf ${SCRIPT_DIRECTORY}/teniski_etiketi.pdf
 }
 
 # now generate template
