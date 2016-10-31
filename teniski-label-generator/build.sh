@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # label generation
-set -e
+set -ex
 
 # base vars
 export SCRIPT_DIRECTORY=$(cd ${0%/*} && pwd -P )
@@ -36,19 +36,12 @@ function check_requirements() {
 		logFatal "inkscape not found"
 	fi
 
-	if ! type convert >/dev/null ; then
-		logFatal "Imagemagic not found"
-	fi
-	
 	if ! type python >/dev/null ; then
 		logFatal "python not found"
 	fi
 
-	if [ ! -r ${SCRIPT_DIRECTORY}/logo_500x500.png ] ; then
-		logFatal "Missing Logo file ${SCRIPT_DIRECTORY}/logo_500x500.png"
-	fi
 
-	if [ ! -r ${SCRIPT_DIRECTORY}/template_teniski_etiketi.svg ] ; then
+	if [ ! -r ${SCRIPT_DIRECTORY}/of-template.svg ] ; then
 		logFatal "Missing label Template"
 	fi
 
@@ -56,8 +49,8 @@ function check_requirements() {
 		logFatal "labelmaker not available. get it from https://github.com/zeridon/labelmaker and link it to \"tool\""
 	fi
 
-	if [ ! -r ${SCRIPT_DIRECTORY}/tool/configs/65mm_x_40mm_3x8.ini ] ; then
-		logFatal "label config not available. get it from https://github.com/zeridon/labelmaker and link it to \"tool\""
+	if [ ! -r ${SCRIPT_DIRECTORY}/label-config.ini ] ; then
+		logFatal "label config not available."
 	fi
 
 	if [ ! -r ${SCRIPT_DIRECTORY}/teniski.csv ] ; then
@@ -70,31 +63,21 @@ function check_requirements() {
 	if ! type pdfopt >/dev/null ; then
 		logFatal "pdfopt (popler-utils) not installed"
 	fi
-
-	if ! type pngcrush >/dev/null ; then
-		logFatal "pngcrus not installed"
-	fi
 }
 
 # do the magic to have a usable template
-function modify_template(){
-	# make grayscale logo
-	convert ${SCRIPT_DIRECTORY}/logo_500x500.png -colorspace Gray -transparent white ${SCRIPT_DIRECTORY}/logo_bw.png
-	pngcrush -e .crush.png -q ${SCRIPT_DIRECTORY}/logo_bw.png && mv ${SCRIPT_DIRECTORY}/logo_bw.crush.png ${SCRIPT_DIRECTORY}/logo_bw.png
-	cat ${SCRIPT_DIRECTORY}/template_teniski_etiketi.svg | sed -e "s|@BASEPATH@|${SCRIPT_DIRECTORY}|" > ${SCRIPT_DIRECTORY}/_tmp.svg
-}
 
 # cleanup the data (just a bit)
 function prepare_data(){
 	head -n 1 ${SCRIPT_DIRECTORY}/teniski.csv > ${SCRIPT_DIRECTORY}/_junk
-	echo 'timestamp,name,kroika,color,razmer' > ${SCRIPT_DIRECTORY}/_data.csv
+	echo 'timestamp,name,kroika,color,kartinka,razmer' > ${SCRIPT_DIRECTORY}/_data.csv
 	fgrep -v -f ${SCRIPT_DIRECTORY}/_junk ${SCRIPT_DIRECTORY}/teniski.csv >> ${SCRIPT_DIRECTORY}/_data.csv
 }
 
 # prepare the sheets
 function prepare_label_sheets(){
 	# generate svg labels
-	/usr/bin/env python ${SCRIPT_DIRECTORY}/tool/labelmaker.py ${SCRIPT_DIRECTORY}/_tmp.svg ${SCRIPT_DIRECTORY}/tool/configs/65mm_x_40mm_3x8.ini ${SCRIPT_DIRECTORY}/_data.csv ${SCRIPT_DIRECTORY}/out.svg
+	/usr/bin/env python ${SCRIPT_DIRECTORY}/tool/labelmaker.py ${SCRIPT_DIRECTORY}/of-template.svg ${SCRIPT_DIRECTORY}/label-config.ini ${SCRIPT_DIRECTORY}/_data.csv ${SCRIPT_DIRECTORY}/out.svg --dir=row
 
 	# convert to various formats
 	for fname in $( ls -1 ${SCRIPT_DIRECTORY}/out_*.svg ) ; do
@@ -111,11 +94,10 @@ function prepare_label_sheets(){
 
 	# now merge pdf's for easier printing
 	pdfunite ${SCRIPT_DIRECTORY}/out_*.pdf ${SCRIPT_DIRECTORY}/teniski_etiketi.pdf
-	pdfopt ${SCRIPT_DIRECTORY}/teniski_etiketi.pdf ${SCRIPT_DIRECTORY}/_tmp.pdf && mv ${SCRIPT_DIRECTORY}/_tmp.pdf ${SCRIPT_DIRECTORY}/teniski_etiketi.pdf
+	#pdfopt ${SCRIPT_DIRECTORY}/teniski_etiketi.pdf ${SCRIPT_DIRECTORY}/_tmp.pdf && mv ${SCRIPT_DIRECTORY}/_tmp.pdf ${SCRIPT_DIRECTORY}/teniski_etiketi.pdf
 }
 
 # now generate template
 check_requirements
-modify_template
 prepare_data
 prepare_label_sheets
